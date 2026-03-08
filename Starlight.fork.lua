@@ -5466,16 +5466,26 @@ function Starlight:CreateWindow(WindowSettings)
 							if Element.Values.Content then
 								local descLabel = GroupboxTemplateInstance.Paragraph_TEMPLATE:Clone()
 								descLabel.Name = "TOGGLE_Description"
-								descLabel.Header.Visible = false
+								descLabel.Header:Destroy()
 								descLabel.Content.Text = Element.Values.Content
 								descLabel.Content.UIPadding.PaddingLeft = UDim.new(0, 6)
 								local descPadding = Instance.new("UIPadding")
-								descPadding.PaddingTop = UDim.new(0, 2)
-								descPadding.PaddingBottom = UDim.new(0, 4)
+								descPadding.PaddingTop = UDim.new(0, 3)
+								descPadding.PaddingBottom = UDim.new(0, 6)
 								descPadding.Parent = descLabel
 								descLabel.Visible = true
 								descLabel.Parent = ElementInstance
 								ThemeMethods.bindTheme(descLabel.Content, "TextColor3", "Foregrounds.Medium")
+
+								local toggleWidget = ElementInstance:FindFirstChild("Switch") or ElementInstance:FindFirstChild("Checkbox")
+								if toggleWidget then
+									local function centerWidget()
+										toggleWidget.AnchorPoint = Vector2.new(1, 0.5)
+										toggleWidget.Position = UDim2.new(1, -8, 0.5, 0)
+									end
+									centerWidget()
+									ElementInstance:GetPropertyChangedSignal("AbsoluteSize"):Connect(centerWidget)
+								end
 							end
 
 							if ElementInstance:FindFirstChild("Checkbox") then
@@ -5749,16 +5759,26 @@ function Starlight:CreateWindow(WindowSettings)
 									else
 										local descLabel = GroupboxTemplateInstance.Paragraph_TEMPLATE:Clone()
 										descLabel.Name = "TOGGLE_Description"
-										descLabel.Header.Visible = false
+										descLabel.Header:Destroy()
 										descLabel.Content.Text = Element.Values.Content
 										descLabel.Content.UIPadding.PaddingLeft = UDim.new(0, 6)
 										local descPadding = Instance.new("UIPadding")
-										descPadding.PaddingTop = UDim.new(0, 2)
-										descPadding.PaddingBottom = UDim.new(0, 4)
+										descPadding.PaddingTop = UDim.new(0, 3)
+										descPadding.PaddingBottom = UDim.new(0, 6)
 										descPadding.Parent = descLabel
 										descLabel.Visible = true
 										descLabel.Parent = ElementInstance
 										ThemeMethods.bindTheme(descLabel.Content, "TextColor3", "Foregrounds.Medium")
+									end
+
+									local toggleWidget = ElementInstance:FindFirstChild("Switch") or ElementInstance:FindFirstChild("Checkbox")
+									if toggleWidget then
+										local function centerWidget()
+											toggleWidget.AnchorPoint = Vector2.new(1, 0.5)
+											toggleWidget.Position = UDim2.new(1, -8, 0.5, 0)
+										end
+										centerWidget()
+										ElementInstance:GetPropertyChangedSignal("AbsoluteSize"):Connect(centerWidget)
 									end
 								elseif existingDesc then
 									existingDesc:Destroy()
