@@ -5469,6 +5469,8 @@ function Starlight:CreateWindow(WindowSettings)
 								descLabel.Header.Visible = false
 								descLabel.Content.Text = Element.Values.Content
 								descLabel.Content.UIPadding.PaddingLeft = UDim.new(0, 6)
+								descLabel.Content.UIPadding.PaddingTop = UDim.new(0, 2)
+								descLabel.Content.UIPadding.PaddingBottom = UDim.new(0, 4)
 								descLabel.Visible = true
 								descLabel.Parent = ElementInstance
 								ThemeMethods.bindTheme(descLabel.Content, "TextColor3", "Foregrounds.Medium")
@@ -5748,6 +5750,8 @@ function Starlight:CreateWindow(WindowSettings)
 										descLabel.Header.Visible = false
 										descLabel.Content.Text = Element.Values.Content
 										descLabel.Content.UIPadding.PaddingLeft = UDim.new(0, 6)
+										descLabel.Content.UIPadding.PaddingTop = UDim.new(0, 2)
+										descLabel.Content.UIPadding.PaddingBottom = UDim.new(0, 4)
 										descLabel.Visible = true
 										descLabel.Parent = ElementInstance
 										ThemeMethods.bindTheme(descLabel.Content, "TextColor3", "Foregrounds.Medium")
