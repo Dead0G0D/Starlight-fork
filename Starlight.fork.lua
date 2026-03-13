@@ -2480,6 +2480,7 @@ function Starlight:CreateWindow(WindowSettings)
 		Name = string,
 		Subtitle = string,
 		Icon = number (asset id), **
+		Logo = number (asset id), ** -- replaces Name text with an ImageLabel in the Sidebar
 		
 		LoadingEnabled = bool,
 		LoadingSettings = {
@@ -2661,7 +2662,21 @@ function Starlight:CreateWindow(WindowSettings)
 		end
 
 		mainWindow.Sidebar.Icon.Image = WindowSettings.Icon ~= nil and "rbxassetid://" .. WindowSettings.Icon or ""
-		mainWindow.Sidebar.Header.Text = WindowSettings.Name or ""
+		if WindowSettings.Logo ~= nil then
+			mainWindow.Sidebar.Header.Text = ""
+			mainWindow.Sidebar.Icon.Visible = false
+			local logoImage = Instance.new("ImageLabel")
+			logoImage.Name = "SidebarLogo"
+			logoImage.Image = "rbxassetid://" .. WindowSettings.Logo
+			logoImage.BackgroundTransparency = 1
+			logoImage.ScaleType = Enum.ScaleType.Fit
+			logoImage.Size = UDim2.new(1, -16, 0, 24)
+			logoImage.Position = UDim2.new(0, 8, 0.5, -12)
+			logoImage.ZIndex = mainWindow.Sidebar.Header.ZIndex
+			logoImage.Parent = mainWindow.Sidebar
+		else
+			mainWindow.Sidebar.Header.Text = WindowSettings.Name or ""
+		end
 		mainWindow.Content.Topbar.Headers.Subheader.Text = WindowSettings.Subtitle or ""
 		StarlightUI.MobileToggle.Image = WindowSettings.Icon ~= nil and "rbxassetid://" .. WindowSettings.Icon
 			or "rbxassetid://6031097229"
@@ -5356,8 +5371,6 @@ function Starlight:CreateWindow(WindowSettings)
 						
 						Style = number, **
 						
-						Content = string, **
-						
 						Callback = function(bool),
 					}
 					]]
@@ -5462,31 +5475,6 @@ function Starlight:CreateWindow(WindowSettings)
 
 							ThemeMethods.bindTheme(ElementInstance.Header, "TextColor3", "Foregrounds.Light")
 							ThemeMethods.bindTheme(ElementInstance.Header.Icon, "ImageColor3", "Foregrounds.Light")
-
-							if Element.Values.Content then
-								local descLabel = GroupboxTemplateInstance.Paragraph_TEMPLATE:Clone()
-								descLabel.Name = "TOGGLE_Description"
-								descLabel.Header:Destroy()
-								descLabel.Content.Text = Element.Values.Content
-								descLabel.Content.UIPadding.PaddingLeft = UDim.new(0, 6)
-								local descPadding = Instance.new("UIPadding")
-								descPadding.PaddingTop = UDim.new(0, 3)
-								descPadding.PaddingBottom = UDim.new(0, 6)
-								descPadding.Parent = descLabel
-								descLabel.Visible = true
-								descLabel.Parent = ElementInstance
-								ThemeMethods.bindTheme(descLabel.Content, "TextColor3", "Foregrounds.Medium")
-
-								local toggleWidget = ElementInstance:FindFirstChild("Switch") or ElementInstance:FindFirstChild("Checkbox")
-								if toggleWidget then
-									local function centerWidget()
-										toggleWidget.AnchorPoint = Vector2.new(1, 0.5)
-										toggleWidget.Position = UDim2.new(1, -8, 0.5, 0)
-									end
-									centerWidget()
-									ElementInstance:GetPropertyChangedSignal("AbsoluteSize"):Connect(centerWidget)
-								end
-							end
 
 							if ElementInstance:FindFirstChild("Checkbox") then
 								if Element.Values.Style == 2 then
@@ -5751,38 +5739,6 @@ function Starlight:CreateWindow(WindowSettings)
 								end
 
 								tooltips[i].Text = Element.Values.Tooltip or ""
-
-								local existingDesc = ElementInstance:FindFirstChild("TOGGLE_Description")
-								if Element.Values.Content then
-									if existingDesc then
-										existingDesc.Content.Text = Element.Values.Content
-									else
-										local descLabel = GroupboxTemplateInstance.Paragraph_TEMPLATE:Clone()
-										descLabel.Name = "TOGGLE_Description"
-										descLabel.Header:Destroy()
-										descLabel.Content.Text = Element.Values.Content
-										descLabel.Content.UIPadding.PaddingLeft = UDim.new(0, 6)
-										local descPadding = Instance.new("UIPadding")
-										descPadding.PaddingTop = UDim.new(0, 3)
-										descPadding.PaddingBottom = UDim.new(0, 6)
-										descPadding.Parent = descLabel
-										descLabel.Visible = true
-										descLabel.Parent = ElementInstance
-										ThemeMethods.bindTheme(descLabel.Content, "TextColor3", "Foregrounds.Medium")
-									end
-
-									local toggleWidget = ElementInstance:FindFirstChild("Switch") or ElementInstance:FindFirstChild("Checkbox")
-									if toggleWidget then
-										local function centerWidget()
-											toggleWidget.AnchorPoint = Vector2.new(1, 0.5)
-											toggleWidget.Position = UDim2.new(1, -8, 0.5, 0)
-										end
-										centerWidget()
-										ElementInstance:GetPropertyChangedSignal("AbsoluteSize"):Connect(centerWidget)
-									end
-								elseif existingDesc then
-									existingDesc:Destroy()
-								end
 
 								Element.Instance = ElementInstance.Visible and ElementInstance or Element.Instance
 							end
