@@ -2663,15 +2663,16 @@ function Starlight:CreateWindow(WindowSettings)
 
 		mainWindow.Sidebar.Icon.Image = WindowSettings.Icon ~= nil and "rbxassetid://" .. WindowSettings.Icon or ""
 		if WindowSettings.Logo ~= nil then
-			mainWindow.Sidebar.Header.Text = ""
+			mainWindow.Sidebar.Header.Visible = false
 			mainWindow.Sidebar.Icon.Visible = false
 			local logoImage = Instance.new("ImageLabel")
 			logoImage.Name = "SidebarLogo"
 			logoImage.Image = "rbxassetid://" .. WindowSettings.Logo
 			logoImage.BackgroundTransparency = 1
 			logoImage.ScaleType = Enum.ScaleType.Fit
-			logoImage.Size = UDim2.new(1, -16, 0, 24)
-			logoImage.Position = UDim2.new(0, 8, 0.5, -12)
+			logoImage.AnchorPoint = Vector2.new(0, 0)
+			logoImage.Size = UDim2.new(1, -16, 0, mainWindow.Sidebar.Header.AbsoluteSize.Y)
+			logoImage.Position = UDim2.new(0, 8, 0, mainWindow.Sidebar.Header.AbsolutePosition.Y - mainWindow.Sidebar.AbsolutePosition.Y)
 			logoImage.ZIndex = mainWindow.Sidebar.Header.ZIndex
 			logoImage.Parent = mainWindow.Sidebar
 		else
