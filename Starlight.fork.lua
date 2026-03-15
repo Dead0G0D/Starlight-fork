@@ -1398,7 +1398,7 @@ local CanvasGroupRegistry = {}
 	Returns the CanvasGroup associated with a given Interface, or nil if one
 	has not been registered yet. Used by Hide/Unhide to choose the fast path.
 ]]
-local function GetCanvasGroup(Interface): CanvasGroup?
+local function GetCanvasGroup(Interface)
 	return CanvasGroupRegistry[Interface]
 end
 
@@ -1415,7 +1415,7 @@ end
 
 	This preserves layout, AnchorPoint, Position and Size exactly.
 ]]
-local function WrapInCanvasGroup(Interface: Frame): CanvasGroup
+local function WrapInCanvasGroup(Interface)
 	if CanvasGroupRegistry[Interface] then
 		return CanvasGroupRegistry[Interface]
 	end
