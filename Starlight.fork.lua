@@ -1390,8 +1390,100 @@ setmetatable(TransparencyValues, {
 local oldSizeX, oldSizeY, oldPosX, oldPosY
 
 -- Hides the given object
+-- CanvasGroup registry: stores the CanvasGroup wrapper created for each Interface
+-- that supports the fast hide/unhide path. Keyed by Interface instance reference.
+local CanvasGroupRegistry = {}
+
+--[[
+	Returns the CanvasGroup associated with a given Interface, or nil if one
+	has not been registered yet. Used by Hide/Unhide to choose the fast path.
+]]
+local function GetCanvasGroup(Interface): CanvasGroup?
+	return CanvasGroupRegistry[Interface]
+end
+
+--[[
+	Wraps an Interface frame inside a CanvasGroup so that Hide/Unhide can
+	animate the entire subtree with a single GroupTransparency tween instead
+	of iterating every descendant.
+
+	Call this once per interface that should use the fast path
+	(e.g. mainWindow and StarlightUI.Drag) right after they are parented.
+
+	The CanvasGroup is inserted between Interface and its current parent:
+		OldParent → CanvasGroup → Interface
+
+	This preserves layout, AnchorPoint, Position and Size exactly.
+]]
+local function WrapInCanvasGroup(Interface: Frame): CanvasGroup
+	if CanvasGroupRegistry[Interface] then
+		return CanvasGroupRegistry[Interface]
+	end
+
+	local cg = Instance.new("CanvasGroup")
+	cg.Name              = Interface.Name .. "_CanvasGroup"
+	cg.Size              = Interface.Size
+	cg.Position          = Interface.Position
+	cg.AnchorPoint       = Interface.AnchorPoint
+	cg.BackgroundTransparency = 1
+	cg.GroupTransparency = 0
+	cg.ZIndex            = Interface.ZIndex
+	cg.Parent            = Interface.Parent
+
+	-- Re-parent the original frame into the CanvasGroup.
+	-- Reset position/anchor so it fills the CanvasGroup exactly.
+	Interface.AnchorPoint = Vector2.new(0, 0)
+	Interface.Position    = UDim2.fromScale(0, 0)
+	Interface.Parent      = cg
+
+	CanvasGroupRegistry[Interface] = cg
+	return cg
+end
+
 local function Hide(Interface, JustHide: boolean?, Notify: boolean?, Bind: string?)
 	JustHide = JustHide or false
+
+	-- FAST PATH: Interface has a CanvasGroup wrapper → single tween, zero iteration
+	local cg = GetCanvasGroup(Interface)
+	if cg and not JustHide then
+		-- Dismiss any open popups (mobile / desktop) before fading out
+		if not isStudio and Starlight.Instance.MobileToggle.Visible then
+			InputManager:SendTouchEvent(0, 0, 0, 0)
+			InputManager:SendTouchEvent(0, 2, 0, 0)
+		elseif not isStudio then
+			InputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+			InputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+		end
+
+		-- Fade the entire subtree to invisible with ONE tween
+		Tween(cg, { GroupTransparency = 1 }, nil, Tween.Info("Exponential", "Out", 0.18))
+		task.wait(0.18)
+		cg.Visible = false
+
+		if Notify then
+			if Starlight.Instance.MobileToggle.Visible then
+				Starlight:Notification({
+					Title   = "Interface Hidden",
+					Icon    = 87575513726659,
+					Content = "The Interface Has Been Hidden. You May Reopen It By Pressing The Small Icon Button. ",
+					Duration = 2,
+				})
+			else
+				Starlight:Notification({
+					Title   = "Interface Hidden",
+					Icon    = 87575513726659,
+					Content = "The Interface Has Been Hidden. You May Reopen It By Pressing The " .. Bind .. " Key.  ",
+					Duration = 2,
+				})
+			end
+		end
+
+		Starlight.Minimized = true
+		return
+	end
+
+	-- LEGACY PATH: no CanvasGroup (JustHide=true, notifications, modals, etc.)
+	-- Kept 100% intact to avoid breaking any secondary behaviour.
 
 	TransparencyValues[Interface.Name] = TransparencyValues[Interface.Name] or {}
 	-- Clear Table
@@ -1574,6 +1666,16 @@ end
 
 -- Unhides the given object which has been hidden by hide
 local function Unhide(Interface)
+	-- FAST PATH: CanvasGroup wrapper exists → single tween, zero iteration
+	local cg = GetCanvasGroup(Interface)
+	if cg then
+		cg.Visible = true
+		Tween(cg, { GroupTransparency = 0 }, nil, Tween.Info("Exponential", "Out", 0.25))
+		Starlight.Minimized = false
+		return
+	end
+
+	-- LEGACY PATH: kept 100% intact for modals, notifications and other callers.
 	if Interface.ClassName == "ScreenGui" then
 		Interface.Enabled = true
 	else
@@ -2480,7 +2582,8 @@ function Starlight:CreateWindow(WindowSettings)
 		Name = string,
 		Subtitle = string,
 		Icon = number (asset id), **
-		Logo = number (asset id), ** -- replaces Name text with an ImageLabel in the Sidebar
+		Logo = number (asset id), **    -- Replaces the text Header with a horizontal image logo in the sidebar
+		LogoSize = UDim2, **            -- Optional custom size for the logo (inherits Header size if not provided)
 		
 		LoadingEnabled = bool,
 		LoadingSettings = {
@@ -2595,6 +2698,11 @@ function Starlight:CreateWindow(WindowSettings)
 		Values = WindowSettings,
 	}
 
+	-- Wrap mainWindow and Drag in CanvasGroups so Hide/Unhide can use the
+	-- fast single-tween path instead of iterating every descendant.
+	WrapInCanvasGroup(mainWindow)
+	WrapInCanvasGroup(StarlightUI.Drag)
+
 	--// SUBSECTION : Initial Code
 	do
 		local AcrylicObject = Acrylic.AcrylicPaint()
@@ -2662,20 +2770,42 @@ function Starlight:CreateWindow(WindowSettings)
 		end
 
 		mainWindow.Sidebar.Icon.Image = WindowSettings.Icon ~= nil and "rbxassetid://" .. WindowSettings.Icon or ""
+
+		-- Logo Mode: replaces the text Header with a horizontal ImageLabel logo
 		if WindowSettings.Logo ~= nil then
+			-- Hide the original text Header
 			mainWindow.Sidebar.Header.Visible = false
-			mainWindow.Sidebar.Icon.Visible = false
+
+			-- Create the logo ImageLabel in place of the Header
 			local logoImage = Instance.new("ImageLabel")
-			logoImage.Name = "SidebarLogo"
+			logoImage.Name = "LogoImage"
 			logoImage.Image = "rbxassetid://" .. WindowSettings.Logo
 			logoImage.BackgroundTransparency = 1
 			logoImage.ScaleType = Enum.ScaleType.Fit
-			logoImage.AnchorPoint = Vector2.new(0, 0)
-			logoImage.Size = UDim2.new(1, -16, 0, mainWindow.Sidebar.Header.AbsoluteSize.Y)
-			logoImage.Position = UDim2.new(0, 8, 0, mainWindow.Sidebar.Header.AbsolutePosition.Y - mainWindow.Sidebar.AbsolutePosition.Y)
-			logoImage.ZIndex = mainWindow.Sidebar.Header.ZIndex
-			logoImage.Parent = mainWindow.Sidebar
+			logoImage.ImageTransparency = 0
+
+			-- Use custom size or inherit the original Header dimensions
+			logoImage.Size = WindowSettings.LogoSize
+				or UDim2.new(
+					mainWindow.Sidebar.Header.Size.X.Scale,
+					mainWindow.Sidebar.Header.Size.X.Offset,
+					mainWindow.Sidebar.Header.Size.Y.Scale,
+					mainWindow.Sidebar.Header.Size.Y.Offset
+				)
+
+			-- Mirror the original Header positioning exactly
+			logoImage.Position    = mainWindow.Sidebar.Header.Position
+			logoImage.AnchorPoint = mainWindow.Sidebar.Header.AnchorPoint
+			logoImage.LayoutOrder = mainWindow.Sidebar.Header.LayoutOrder
+
+			-- Parent to the same container as the original Header
+			logoImage.Parent = mainWindow.Sidebar.Header.Parent
+
+			-- Bind ImageColor3 to the active theme's light foreground
+			-- Remove this line if you want the logo to keep its original colours regardless of theme
+			ThemeMethods.bindTheme(logoImage, "ImageColor3", "Foregrounds.Light")
 		else
+			-- Default behaviour: display the window name as text
 			mainWindow.Sidebar.Header.Text = WindowSettings.Name or ""
 		end
 		mainWindow.Content.Topbar.Headers.Subheader.Text = WindowSettings.Subtitle or ""
