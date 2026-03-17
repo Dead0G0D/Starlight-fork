@@ -1427,8 +1427,8 @@ local function Hide(Interface, JustHide: boolean?, Notify: boolean?, Bind: strin
 		FastHideRegistry[Interface] = Interface.BackgroundTransparency
 
 		-- Single tween to transparent, then flip Visible — zero descendant iteration
-		Tween(Interface, { BackgroundTransparency = 1 }, nil, Tween.Info("Exponential", "Out", 0.18))
-		task.wait(0.18)
+		Tween(Interface, { BackgroundTransparency = 1 }, nil, Tween.Info("Exponential", "Out", 0.08))
+		task.wait(0.08)
 		Interface.Visible = false
 
 		if Notify then
@@ -1643,7 +1643,7 @@ local function Unhide(Interface)
 		Interface.BackgroundTransparency = 1
 		Interface.Visible = true
 		-- Tween back to the exact value that was saved just before hiding
-		Tween(Interface, { BackgroundTransparency = savedBG }, nil, Tween.Info("Exponential", "Out", 0.25))
+		Tween(Interface, { BackgroundTransparency = savedBG }, nil, Tween.Info("Exponential", "Out", 0.1))
 		Starlight.Minimized = false
 		return
 	end
@@ -2785,6 +2785,10 @@ function Starlight:CreateWindow(WindowSettings)
 		mainWindow.Content.Topbar.Headers.Subheader.Text = WindowSettings.Subtitle or ""
 		StarlightUI.MobileToggle.Image = WindowSettings.Icon ~= nil and "rbxassetid://" .. WindowSettings.Icon
 			or "rbxassetid://6031097229"
+
+		-- Mobile toggle button size. Pass MobileButtonSize in WindowSettings to customize (default 50).
+		local mobileButtonSize = WindowSettings.MobileButtonSize or 50
+		StarlightUI.MobileToggle.Size = UDim2.fromOffset(mobileButtonSize, mobileButtonSize)
 
 		local size = mainWindow.Size
 		mainWindow.Size = WindowSettings.LoadingEnabled and UDim2.fromOffset(500, 325) or mainWindow.Size
