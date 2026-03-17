@@ -1390,44 +1390,29 @@ setmetatable(TransparencyValues, {
 local oldSizeX, oldSizeY, oldPosX, oldPosY
 
 -- Hides the given object
--- CanvasGroup registry: stores the CanvasGroup wrapper created for each Interface
--- that supports the fast hide/unhide path. Keyed by Interface instance reference.
-local CanvasGroupRegistry = {}
+-- FastHide registry: maps Interface → original BackgroundTransparency value.
+-- Registered interfaces skip the N-tween descendant loop and use a single
+-- root-level fade + Visible = false instead. Much cheaper for large trees.
+local FastHideRegistry = {}
 
---[[
-	Returns the CanvasGroup associated with a given Interface, or nil if one
-	has not been registered yet. Used by Hide/Unhide to choose the fast path.
-]]
-local function GetCanvasGroup(Interface)
-	return CanvasGroupRegistry[Interface]
+-- Returns the saved BackgroundTransparency for a registered interface, or nil.
+local function GetFastHide(Interface)
+	return FastHideRegistry[Interface]
 end
 
---[[
-	Registers a CanvasGroup for an Interface WITHOUT re-parenting anything.
-	Instead of moving the Interface inside a CanvasGroup (which breaks all
-	StarlightUI.MainWindow / StarlightUI.Drag path references), we simply
-	store the Interface itself in the registry and control its descendants
-	via a single stored snapshot + one GroupTransparency tween on a wrapper
-	created lazily on first Hide call.
-
-	For Roblox executors, CanvasGroup must be a parent of the target frame.
-	Since we cannot safely re-parent mainWindow, we use a different fast path:
-	we set Visible = false immediately on hide and Visible = true on unhide,
-	with a short tween on the mainWindow BackgroundTransparency only (1 tween),
-	skipping the full descendant iteration entirely.
-	This is still orders of magnitude cheaper than the original N-tween approach.
-]]
+-- Registers an interface for the fast hide path.
+-- Saves its current BackgroundTransparency so Unhide can restore it exactly.
 local function RegisterFastHide(Interface)
-	CanvasGroupRegistry[Interface] = Interface -- self-reference signals fast path
+	FastHideRegistry[Interface] = Interface.BackgroundTransparency
 end
 
 local function Hide(Interface, JustHide: boolean?, Notify: boolean?, Bind: string?)
 	JustHide = JustHide or false
 
-	-- FAST PATH: Interface is registered for fast hide → skip full descendant iteration.
-	-- Uses Visible = false after a minimal fade instead of N individual tweens.
-	local cg = GetCanvasGroup(Interface)
-	if cg and not JustHide then
+	-- FAST PATH: mainWindow is registered — skip iterating every descendant.
+	-- Saves and restores BackgroundTransparency exactly, so themes/acrylic stay intact.
+	local savedBG = GetFastHide(Interface)
+	if savedBG ~= nil and not JustHide then
 		-- Dismiss any open popups (mobile / desktop) before fading out
 		if not isStudio and Starlight.Instance.MobileToggle.Visible then
 			InputManager:SendTouchEvent(0, 0, 0, 0)
@@ -1437,7 +1422,11 @@ local function Hide(Interface, JustHide: boolean?, Notify: boolean?, Bind: strin
 			InputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 		end
 
-		-- Single tween on the root frame, then hide — zero descendant iteration
+		-- Save the CURRENT BackgroundTransparency (may differ from registered value
+		-- if acrylic changed it after registration) so Unhide restores correctly.
+		FastHideRegistry[Interface] = Interface.BackgroundTransparency
+
+		-- Single tween to transparent, then flip Visible — zero descendant iteration
 		Tween(Interface, { BackgroundTransparency = 1 }, nil, Tween.Info("Exponential", "Out", 0.18))
 		task.wait(0.18)
 		Interface.Visible = false
@@ -1648,12 +1637,13 @@ end
 
 -- Unhides the given object which has been hidden by hide
 local function Unhide(Interface)
-	-- FAST PATH: registered interface → single tween, zero descendant iteration
-	local cg = GetCanvasGroup(Interface)
-	if cg then
+	-- FAST PATH: mainWindow — restore exactly to the BG saved during Hide
+	local savedBG = GetFastHide(Interface)
+	if savedBG ~= nil then
 		Interface.BackgroundTransparency = 1
 		Interface.Visible = true
-		Tween(Interface, { BackgroundTransparency = 0 }, nil, Tween.Info("Exponential", "Out", 0.25))
+		-- Tween back to the exact value that was saved just before hiding
+		Tween(Interface, { BackgroundTransparency = savedBG }, nil, Tween.Info("Exponential", "Out", 0.25))
 		Starlight.Minimized = false
 		return
 	end
@@ -2681,10 +2671,11 @@ function Starlight:CreateWindow(WindowSettings)
 		Values = WindowSettings,
 	}
 
-	-- Register mainWindow and Drag for the fast Hide/Unhide path.
-	-- No re-parenting — only marks them so Hide/Unhide skip the N-tween loop.
+	-- Register only mainWindow for the fast Hide/Unhide path.
+	-- StarlightUI.Drag is left on the legacy path: it has few descendants
+	-- and its DragCosmetic relies on per-element transparency restore.
+	-- Using fast path on Drag causes it to stay visible after minimize.
 	RegisterFastHide(mainWindow)
-	RegisterFastHide(StarlightUI.Drag)
 
 	--// SUBSECTION : Initial Code
 	do
