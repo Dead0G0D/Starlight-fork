@@ -1437,14 +1437,14 @@ local function Hide(Interface, JustHide: boolean?, Notify: boolean?, Bind: strin
 					Title   = "Interface Hidden",
 					Icon    = 87575513726659,
 					Content = "The Interface Has Been Hidden. You May Reopen It By Pressing The Small Icon Button. ",
-					Duration = 2,
+					Duration = 1,
 				})
 			else
 				Starlight:Notification({
 					Title   = "Interface Hidden",
 					Icon    = 87575513726659,
 					Content = "The Interface Has Been Hidden. You May Reopen It By Pressing The " .. Bind .. " Key.  ",
-					Duration = 2,
+					Duration = 1,
 				})
 			end
 		end
@@ -1528,7 +1528,7 @@ local function Hide(Interface, JustHide: boolean?, Notify: boolean?, Bind: strin
 
 	if Interface.ClassName ~= "ScreenGui" then
 		if JustHide == false then
-			Interface:SetAttribute("InstanceID", HttpService:GenerateGUID(false)) -- we are doing this cus roblox fucking removed/disabled the UniqueId feature, and stuff might have the same name
+			Interface:SetAttribute("InstanceID", HttpService:GenerateGUID(false))
 
 			TransparencyValues[Interface.Name][Interface:GetAttribute("InstanceID")] = {}
 
@@ -1555,15 +1555,12 @@ local function Hide(Interface, JustHide: boolean?, Notify: boolean?, Bind: strin
 					Interface.ImageTransparency
 			end
 
-			-- do this cus roblox gui stuff have a although deprecated class, its still accesible by scripts
-			-- and sets text and transparency values which is smth we dont want
 			if Interface.ClassName == "UIStroke" or Interface.ClassName == "UIGradient" then
 				TransparencyValues[Interface.Name][Interface:GetAttribute("InstanceID")].Transparency =
 					Interface.Transparency
 			end
 		end
 
-		-- Actually Hide The Stuff
 		if Interface.ClassName == "Frame" then
 			Tween(Interface, { BackgroundTransparency = 1 })
 		end
@@ -1587,7 +1584,6 @@ local function Hide(Interface, JustHide: boolean?, Notify: boolean?, Bind: strin
 		end
 	end
 	
-	-- hide popups
 	if not isStudio and Starlight.Instance.MobileToggle.Visible then
 		InputManager:SendTouchEvent(
 			0, 0, 0, 0
@@ -1607,7 +1603,7 @@ local function Hide(Interface, JustHide: boolean?, Notify: boolean?, Bind: strin
 	end
 
 
-	task.wait(0.18)
+	task.wait(0.08)
 	if Interface.ClassName == "ScreenGui" then
 		Interface.Enabled = false
 	else
@@ -1620,14 +1616,14 @@ local function Hide(Interface, JustHide: boolean?, Notify: boolean?, Bind: strin
 				Title = "Interface Hidden",
 				Icon = 87575513726659,
 				Content = "The Interface Has Been Hidden. You May Reopen It By Pressing The Small Icon Button. ",
-				Duration = 2,
+				Duration = 1,
 			})
 		else
 			Starlight:Notification({
 				Title = "Interface Hidden",
 				Icon = 87575513726659,
 				Content = "The Interface Has Been Hidden. You May Reopen It By Pressing The " .. Bind .. " Key.  ",
-				Duration = 2,
+				Duration = 1,
 			})
 		end
 	end
@@ -1635,20 +1631,16 @@ local function Hide(Interface, JustHide: boolean?, Notify: boolean?, Bind: strin
 	Starlight.Minimized = true
 end
 
--- Unhides the given object which has been hidden by hide
 local function Unhide(Interface)
-	-- FAST PATH: mainWindow — restore exactly to the BG saved during Hide
 	local savedBG = GetFastHide(Interface)
 	if savedBG ~= nil then
 		Interface.BackgroundTransparency = 1
 		Interface.Visible = true
-		-- Tween back to the exact value that was saved just before hiding
-		Tween(Interface, { BackgroundTransparency = savedBG }, nil, Tween.Info("Exponential", "Out", 0.1))
+		Tween(Interface, { BackgroundTransparency = savedBG }, nil, Tween.Info("Exponential", "Out", 0.08))
 		Starlight.Minimized = false
 		return
 	end
 
-	-- LEGACY PATH: kept 100% intact for modals, notifications and other callers.
 	if Interface.ClassName == "ScreenGui" then
 		Interface.Enabled = true
 	else
@@ -1820,8 +1812,8 @@ local function Maximize(Window: Frame)
 	oldPosX = Window.Position.X.Offset
 	oldPosY = Window.Position.Y.Offset
 
-	Tween(Window, { Size = UDim2.new(1, -2, 1, -2) }, nil, Tween.Info(nil, nil, 0.38))
-	Tween(Window, { Position = UDim2.fromOffset(1, 1) }, nil, Tween.Info(nil, nil, 0.38))
+	Tween(Window, { Size = UDim2.new(1, -2, 1, -2) }, nil, Tween.Info(nil, nil, 0.08))
+	Tween(Window, { Position = UDim2.fromOffset(1, 1) }, nil, Tween.Info(nil, nil, 0.08))
 
 	Starlight.Maximized = true
 end
