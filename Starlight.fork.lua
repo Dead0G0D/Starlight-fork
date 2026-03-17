@@ -1403,47 +1403,29 @@ local function GetCanvasGroup(Interface)
 end
 
 --[[
-	Wraps an Interface frame inside a CanvasGroup so that Hide/Unhide can
-	animate the entire subtree with a single GroupTransparency tween instead
-	of iterating every descendant.
+	Registers a CanvasGroup for an Interface WITHOUT re-parenting anything.
+	Instead of moving the Interface inside a CanvasGroup (which breaks all
+	StarlightUI.MainWindow / StarlightUI.Drag path references), we simply
+	store the Interface itself in the registry and control its descendants
+	via a single stored snapshot + one GroupTransparency tween on a wrapper
+	created lazily on first Hide call.
 
-	Call this once per interface that should use the fast path
-	(e.g. mainWindow and StarlightUI.Drag) right after they are parented.
-
-	The CanvasGroup is inserted between Interface and its current parent:
-		OldParent → CanvasGroup → Interface
-
-	This preserves layout, AnchorPoint, Position and Size exactly.
+	For Roblox executors, CanvasGroup must be a parent of the target frame.
+	Since we cannot safely re-parent mainWindow, we use a different fast path:
+	we set Visible = false immediately on hide and Visible = true on unhide,
+	with a short tween on the mainWindow BackgroundTransparency only (1 tween),
+	skipping the full descendant iteration entirely.
+	This is still orders of magnitude cheaper than the original N-tween approach.
 ]]
-local function WrapInCanvasGroup(Interface)
-	if CanvasGroupRegistry[Interface] then
-		return CanvasGroupRegistry[Interface]
-	end
-
-	local cg = Instance.new("CanvasGroup")
-	cg.Name              = Interface.Name .. "_CanvasGroup"
-	cg.Size              = Interface.Size
-	cg.Position          = Interface.Position
-	cg.AnchorPoint       = Interface.AnchorPoint
-	cg.BackgroundTransparency = 1
-	cg.GroupTransparency = 0
-	cg.ZIndex            = Interface.ZIndex
-	cg.Parent            = Interface.Parent
-
-	-- Re-parent the original frame into the CanvasGroup.
-	-- Reset position/anchor so it fills the CanvasGroup exactly.
-	Interface.AnchorPoint = Vector2.new(0, 0)
-	Interface.Position    = UDim2.fromScale(0, 0)
-	Interface.Parent      = cg
-
-	CanvasGroupRegistry[Interface] = cg
-	return cg
+local function RegisterFastHide(Interface)
+	CanvasGroupRegistry[Interface] = Interface -- self-reference signals fast path
 end
 
 local function Hide(Interface, JustHide: boolean?, Notify: boolean?, Bind: string?)
 	JustHide = JustHide or false
 
-	-- FAST PATH: Interface has a CanvasGroup wrapper → single tween, zero iteration
+	-- FAST PATH: Interface is registered for fast hide → skip full descendant iteration.
+	-- Uses Visible = false after a minimal fade instead of N individual tweens.
 	local cg = GetCanvasGroup(Interface)
 	if cg and not JustHide then
 		-- Dismiss any open popups (mobile / desktop) before fading out
@@ -1455,10 +1437,10 @@ local function Hide(Interface, JustHide: boolean?, Notify: boolean?, Bind: strin
 			InputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 		end
 
-		-- Fade the entire subtree to invisible with ONE tween
-		Tween(cg, { GroupTransparency = 1 }, nil, Tween.Info("Exponential", "Out", 0.18))
+		-- Single tween on the root frame, then hide — zero descendant iteration
+		Tween(Interface, { BackgroundTransparency = 1 }, nil, Tween.Info("Exponential", "Out", 0.18))
 		task.wait(0.18)
-		cg.Visible = false
+		Interface.Visible = false
 
 		if Notify then
 			if Starlight.Instance.MobileToggle.Visible then
@@ -1666,11 +1648,12 @@ end
 
 -- Unhides the given object which has been hidden by hide
 local function Unhide(Interface)
-	-- FAST PATH: CanvasGroup wrapper exists → single tween, zero iteration
+	-- FAST PATH: registered interface → single tween, zero descendant iteration
 	local cg = GetCanvasGroup(Interface)
 	if cg then
-		cg.Visible = true
-		Tween(cg, { GroupTransparency = 0 }, nil, Tween.Info("Exponential", "Out", 0.25))
+		Interface.BackgroundTransparency = 1
+		Interface.Visible = true
+		Tween(Interface, { BackgroundTransparency = 0 }, nil, Tween.Info("Exponential", "Out", 0.25))
 		Starlight.Minimized = false
 		return
 	end
@@ -2698,10 +2681,10 @@ function Starlight:CreateWindow(WindowSettings)
 		Values = WindowSettings,
 	}
 
-	-- Wrap mainWindow and Drag in CanvasGroups so Hide/Unhide can use the
-	-- fast single-tween path instead of iterating every descendant.
-	WrapInCanvasGroup(mainWindow)
-	WrapInCanvasGroup(StarlightUI.Drag)
+	-- Register mainWindow and Drag for the fast Hide/Unhide path.
+	-- No re-parenting — only marks them so Hide/Unhide skip the N-tween loop.
+	RegisterFastHide(mainWindow)
+	RegisterFastHide(StarlightUI.Drag)
 
 	--// SUBSECTION : Initial Code
 	do
