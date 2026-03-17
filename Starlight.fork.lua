@@ -2787,6 +2787,8 @@ function Starlight:CreateWindow(WindowSettings)
 			or "rbxassetid://6031097229"
 
 		-- Mobile toggle button size. Pass MobileButtonSize in WindowSettings to customize (default 50).
+		-- Position is preserved exactly as defined in the asset.
+		-- Only Size changes — AnchorPoint stays untouched so no displacement occurs.
 		local mobileButtonSize = WindowSettings.MobileButtonSize or 50
 		StarlightUI.MobileToggle.Size = UDim2.fromOffset(mobileButtonSize, mobileButtonSize)
 
