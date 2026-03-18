@@ -68,14 +68,14 @@ by Nebula Softworks
 
 --// SECTION : Core Variables
 
-local Release = "Prerelease Beta 5.03Meow forked by All Ihave"
+local Release = "Prerelease Beta 5.03Meow fork by All Ihave"
 local debugV = false
 
 local Starlight = {
 
 	InterfaceBuild = "B5B9",
 
-	WindowKeybind = "K",
+	WindowKeybind = "T",
 
 	Minimized = false,
 	Maximized = false,
