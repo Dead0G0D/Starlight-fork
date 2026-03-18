@@ -2835,8 +2835,8 @@ function Starlight:CreateWindow(WindowSettings)
 			-- Repurpose the subheader as the static 'Script Status:' key label
 			subheader.Text = "Script Status:"
 
-			-- Dynamic value label — positioned inline after 'Script Status:'
-			-- Uses a task.defer so TextBounds is computed before we read it
+			-- Dynamic value label — parented directly to subheader so it shares
+			-- the same coordinate space. Offset = TextBounds.X + gap, Y = 0 = same baseline.
 			local statusValue = Instance.new("TextLabel")
 			statusValue.Name = "StatusValue"
 			statusValue.Text = "Loading"
@@ -2844,11 +2844,12 @@ function Starlight:CreateWindow(WindowSettings)
 			statusValue.TextSize = subheader.TextSize
 			statusValue.FontFace = Font.fromId(12187365364, Enum.FontWeight.Bold)
 			statusValue.TextXAlignment = Enum.TextXAlignment.Left
+			statusValue.TextYAlignment = Enum.TextYAlignment.Center
 			statusValue.AutomaticSize = Enum.AutomaticSize.X
 			statusValue.Size = UDim2.new(0, 0, 1, 0)
-			statusValue.Position = UDim2.new(0, 0, 0, 0) -- aligned via defer below
+			statusValue.Position = UDim2.fromOffset(0, 0) -- set after defer
 			statusValue.ZIndex = subheader.ZIndex + 1
-			statusValue.Parent = subheader.Parent
+			statusValue.Parent = subheader  -- child of subheader: same Y, offset only in X
 
 			-- Gradient: accent colour of the active theme (auto-updates on theme change)
 			local statusGradient = Instance.new("UIGradient")
@@ -2856,7 +2857,7 @@ function Starlight:CreateWindow(WindowSettings)
 			statusGradient.Parent = statusValue
 			ThemeMethods.bindTheme(statusGradient, "Color", "Accents.Main")
 
-			-- UIStroke: thin neon outline that matches the accent, gives the glowing look
+			-- UIStroke: thin neon outline on the text characters for the glowing look
 			local statusStroke = Instance.new("UIStroke")
 			statusStroke.Thickness = 0.8
 			statusStroke.Transparency = 0.35
@@ -2864,22 +2865,17 @@ function Starlight:CreateWindow(WindowSettings)
 			statusStroke.Parent = statusValue
 			ThemeMethods.bindTheme(statusStroke, "Color", "Miscellaneous.Divider")
 
-			-- Align the value label after the subheader text renders (deferred 1 frame)
+			-- X offset = how wide 'Script Status:' text is + 4px gap
+			-- Deferred one frame so TextBounds is populated after the first render
 			local function alignStatusValue()
-				statusValue.Position = UDim2.new(
-					subheader.Position.X.Scale,
-					subheader.Position.X.Offset + subheader.TextBounds.X + 5,
-					subheader.Position.Y.Scale,
-					subheader.Position.Y.Offset
-				)
+				statusValue.Position = UDim2.fromOffset(subheader.TextBounds.X + 4, 0)
 			end
 			task.defer(alignStatusValue)
 
-			-- Setter: updates text + re-aligns + tweens stroke transparency for a pulse effect
+			-- Setter: swap text, re-align, pulse the neon stroke
 			local function setStatus(text)
 				statusValue.Text = text
 				task.defer(alignStatusValue)
-				-- Brief pulse on the stroke to signal the change visually
 				Tween(statusStroke, { Transparency = 0 }, nil, Tween.Info("Exponential", "Out", 0.15))
 				task.delay(0.4, function()
 					Tween(statusStroke, { Transparency = 0.35 }, nil, Tween.Info("Exponential", "Out", 0.5))
