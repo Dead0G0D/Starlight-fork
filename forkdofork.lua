@@ -2825,16 +2825,18 @@ function Starlight:CreateWindow(WindowSettings)
 			Players:GetUserThumbnailAsync(Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
 		mainWindow.Sidebar.Player.Header.Text = Player.DisplayName
 
-		-- PlayerStatus: replaces the username subheader with a 'Script Status: Loading' line.
-		-- When loading finishes it animates through 'Loaded' then 'Running'.
+		-- PlayerStatus: replaces the username subheader with 'Script Status: <value>'.
+		-- Automatically animates Loading → Loaded → Running when the window finishes loading.
 		-- Enable by passing PlayerStatus = true in WindowSettings.
+		-- Change at runtime via: Starlight.Window.SetPlayerStatus("AFK")
 		if WindowSettings.PlayerStatus then
 			local subheader = mainWindow.Sidebar.Player.subheader
 
-			-- Reuse the existing subheader frame as the key label ('Script Status:')
+			-- Repurpose the subheader as the static 'Script Status:' key label
 			subheader.Text = "Script Status:"
 
-			-- Value label sits right after the subheader text, same line via absolute position
+			-- Dynamic value label — positioned inline after 'Script Status:'
+			-- Uses a task.defer so TextBounds is computed before we read it
 			local statusValue = Instance.new("TextLabel")
 			statusValue.Name = "StatusValue"
 			statusValue.Text = "Loading"
@@ -2844,38 +2846,54 @@ function Starlight:CreateWindow(WindowSettings)
 			statusValue.TextXAlignment = Enum.TextXAlignment.Left
 			statusValue.AutomaticSize = Enum.AutomaticSize.X
 			statusValue.Size = UDim2.new(0, 0, 1, 0)
-			statusValue.Position = UDim2.new(0, subheader.TextBounds.X + 5, 0, 0)
+			statusValue.Position = UDim2.new(0, 0, 0, 0) -- aligned via defer below
 			statusValue.ZIndex = subheader.ZIndex + 1
 			statusValue.Parent = subheader.Parent
 
-			-- UIGradient gives 'Running'/'Loaded' the accent colour
+			-- Gradient: accent colour of the active theme (auto-updates on theme change)
 			local statusGradient = Instance.new("UIGradient")
 			statusGradient.Rotation = 0
 			statusGradient.Parent = statusValue
 			ThemeMethods.bindTheme(statusGradient, "Color", "Accents.Main")
 
-			-- Internal setter used by the loading sequence and exposed publicly
+			-- UIStroke: thin neon outline that matches the accent, gives the glowing look
+			local statusStroke = Instance.new("UIStroke")
+			statusStroke.Thickness = 0.8
+			statusStroke.Transparency = 0.35
+			statusStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+			statusStroke.Parent = statusValue
+			ThemeMethods.bindTheme(statusStroke, "Color", "Miscellaneous.Divider")
+
+			-- Align the value label after the subheader text renders (deferred 1 frame)
+			local function alignStatusValue()
+				statusValue.Position = UDim2.new(
+					subheader.Position.X.Scale,
+					subheader.Position.X.Offset + subheader.TextBounds.X + 5,
+					subheader.Position.Y.Scale,
+					subheader.Position.Y.Offset
+				)
+			end
+			task.defer(alignStatusValue)
+
+			-- Setter: updates text + re-aligns + tweens stroke transparency for a pulse effect
 			local function setStatus(text)
 				statusValue.Text = text
-				-- Re-align after text changes
-				statusValue.Position = UDim2.new(0, subheader.TextBounds.X + 5, 0, 0)
+				task.defer(alignStatusValue)
+				-- Brief pulse on the stroke to signal the change visually
+				Tween(statusStroke, { Transparency = 0 }, nil, Tween.Info("Exponential", "Out", 0.15))
+				task.delay(0.4, function()
+					Tween(statusStroke, { Transparency = 0.35 }, nil, Tween.Info("Exponential", "Out", 0.5))
+				end)
 			end
 
-			-- Public API: Starlight.Window.SetPlayerStatus("AFK")
+			-- Public API exposed on the Window table
 			Starlight.Window.SetPlayerStatus = setStatus
 
-			-- Store setStatus so the loading block below can reach it
-			mainWindow:SetAttribute("__statusReady", true)
-			mainWindow:SetAttribute("__statusSetterRef", false) -- placeholder
-			-- Use a BindableFunction as a bridge between the creation block and the loading block
+			-- BindableFunction bridge so the loading sequence (task.spawn) can call setStatus
 			local statusBridge = Instance.new("BindableFunction")
 			statusBridge.Name = "__StatusBridge"
 			statusBridge.OnInvoke = setStatus
 			statusBridge.Parent = mainWindow
-		end
-
-		if false then -- removed block kept for diff clarity
-			mainWindow.Sidebar.Player.subheader.Text = Player.Name
 		end
 
 		-- PlayerInfoBlur: overlays a frosted-glass blur effect on the player avatar icon.
