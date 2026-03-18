@@ -2824,78 +2824,58 @@ function Starlight:CreateWindow(WindowSettings)
 		mainWindow.Sidebar.Player.PlayerIcon.Image =
 			Players:GetUserThumbnailAsync(Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
 		mainWindow.Sidebar.Player.Header.Text = Player.DisplayName
-		mainWindow.Sidebar.Player.subheader.Text = Player.Name
 
-		-- PlayerStatusLabel: shows a 'STATUS: ONLINE' badge below the player username.
+		-- PlayerStatus: replaces the username subheader with a 'Script Status: Loading' line.
+		-- When loading finishes it animates through 'Loaded' then 'Running'.
 		-- Enable by passing PlayerStatus = true in WindowSettings.
-		-- Optionally pass PlayerStatusText = string to override 'ONLINE' (default).
 		if WindowSettings.PlayerStatus then
-			local playerSection = mainWindow.Sidebar.Player
-			local subheader = playerSection.subheader
+			local subheader = mainWindow.Sidebar.Player.subheader
 
-			-- Outer status row frame
-			local statusFrame = Instance.new("Frame")
-			statusFrame.Name = "StatusRow"
-			statusFrame.BackgroundTransparency = 1
-			statusFrame.Size = UDim2.new(1, 0, 0, 14)
-			statusFrame.Position = UDim2.new(
-				subheader.Position.X.Scale,
-				subheader.Position.X.Offset,
-				subheader.Position.Y.Scale,
-				subheader.Position.Y.Offset + subheader.Size.Y.Offset + 4
-			)
-			statusFrame.ZIndex = subheader.ZIndex
-			statusFrame.Parent = playerSection
+			-- Reuse the existing subheader frame as the key label ('Script Status:')
+			subheader.Text = "Script Status:"
 
-			local statusLayout = Instance.new("UIListLayout")
-			statusLayout.FillDirection = Enum.FillDirection.Horizontal
-			statusLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-			statusLayout.SortOrder = Enum.SortOrder.LayoutOrder
-			statusLayout.Padding = UDim.new(0, 4)
-			statusLayout.Parent = statusFrame
-
-			-- 'STATUS:' label — neutral colour
-			local statusKey = Instance.new("TextLabel")
-			statusKey.Name = "StatusKey"
-			statusKey.Text = "STATUS:"
-			statusKey.BackgroundTransparency = 1
-			statusKey.TextSize = 10
-			statusKey.FontFace = Font.fromId(12187365364, Enum.FontWeight.Bold)
-			statusKey.TextXAlignment = Enum.TextXAlignment.Left
-			statusKey.AutomaticSize = Enum.AutomaticSize.X
-			statusKey.Size = UDim2.new(0, 0, 1, 0)
-			statusKey.LayoutOrder = 1
-			statusKey.ZIndex = statusFrame.ZIndex + 1
-			statusKey.Parent = statusFrame
-
-			-- 'ONLINE' label — accent gradient colour
+			-- Value label sits right after the subheader text, same line via absolute position
 			local statusValue = Instance.new("TextLabel")
 			statusValue.Name = "StatusValue"
-			statusValue.Text = WindowSettings.PlayerStatusText or "ONLINE"
+			statusValue.Text = "Loading"
 			statusValue.BackgroundTransparency = 1
-			statusValue.TextSize = 10
+			statusValue.TextSize = subheader.TextSize
 			statusValue.FontFace = Font.fromId(12187365364, Enum.FontWeight.Bold)
 			statusValue.TextXAlignment = Enum.TextXAlignment.Left
 			statusValue.AutomaticSize = Enum.AutomaticSize.X
 			statusValue.Size = UDim2.new(0, 0, 1, 0)
-			statusValue.LayoutOrder = 2
-			statusValue.ZIndex = statusFrame.ZIndex + 1
-			statusValue.Parent = statusFrame
+			statusValue.Position = UDim2.new(0, subheader.TextBounds.X + 5, 0, 0)
+			statusValue.ZIndex = subheader.ZIndex + 1
+			statusValue.Parent = subheader.Parent
 
-			-- UIGradient on StatusValue to match the accent colour of the active theme
+			-- UIGradient gives 'Running'/'Loaded' the accent colour
 			local statusGradient = Instance.new("UIGradient")
-			statusGradient.Rotation = 90
+			statusGradient.Rotation = 0
 			statusGradient.Parent = statusValue
-
-			-- Bind colours to theme
-			ThemeMethods.bindTheme(statusKey, "TextColor3", "Foregrounds.Medium")
 			ThemeMethods.bindTheme(statusGradient, "Color", "Accents.Main")
 
-			-- Expose setter so the script can change the status text at runtime:
-			-- Starlight.Window.SetPlayerStatus("AFK")
-			Starlight.Window.SetPlayerStatus = function(newText)
-				statusValue.Text = newText or "ONLINE"
+			-- Internal setter used by the loading sequence and exposed publicly
+			local function setStatus(text)
+				statusValue.Text = text
+				-- Re-align after text changes
+				statusValue.Position = UDim2.new(0, subheader.TextBounds.X + 5, 0, 0)
 			end
+
+			-- Public API: Starlight.Window.SetPlayerStatus("AFK")
+			Starlight.Window.SetPlayerStatus = setStatus
+
+			-- Store setStatus so the loading block below can reach it
+			mainWindow:SetAttribute("__statusReady", true)
+			mainWindow:SetAttribute("__statusSetterRef", false) -- placeholder
+			-- Use a BindableFunction as a bridge between the creation block and the loading block
+			local statusBridge = Instance.new("BindableFunction")
+			statusBridge.Name = "__StatusBridge"
+			statusBridge.OnInvoke = setStatus
+			statusBridge.Parent = mainWindow
+		end
+
+		if false then -- removed block kept for diff clarity
+			mainWindow.Sidebar.Player.subheader.Text = Player.Name
 		end
 
 		-- PlayerInfoBlur: overlays a frosted-glass blur effect on the player avatar icon.
@@ -3189,6 +3169,15 @@ function Starlight:CreateWindow(WindowSettings)
 				Tween(playerIcon, { BackgroundTransparency = 1 }, nil, Tween.Info("Quint", "InOut", 0.2))
 				task.wait(1.1 - 0.08)
 				Tween(main, { BackgroundTransparency = 1 }, nil, Tween.Info("Quint", "InOut", 0.2))
+
+				-- Status sequence (LoadingEnabled path): Loaded → Running
+				local bridge = mainWindow:FindFirstChild("__StatusBridge")
+				if bridge then
+					bridge:Invoke("Loaded")
+					task.wait(1.2)
+					bridge:Invoke("Running")
+				end
+
 				-- like this cus uhh tween method dont got all the properties
 				--[[if not loadingScreenLogoChanged then
 				TweenService:Create(mainWindow["Loading Screen"].Frame.ImageLabel, TweenInfo.new(1.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 2, false, 0.2), {Rotation = 450}):Play()
@@ -3217,6 +3206,14 @@ function Starlight:CreateWindow(WindowSettings)
 			mainWindow.Visible = true
 			StarlightUI.Drag.Visible = true
 			StarlightUI.MobileToggle.Visible = UserInputService.TouchEnabled
+
+			-- Status sequence (no loading screen path): jump straight to Running
+			local bridge = mainWindow:FindFirstChild("__StatusBridge")
+			if bridge then
+				bridge:Invoke("Loaded")
+				task.wait(0.8)
+				bridge:Invoke("Running")
+			end
 		end)
 
 		makeDraggable(mainWindow.Content.Topbar, mainWindow, StarlightUI.Drag)
