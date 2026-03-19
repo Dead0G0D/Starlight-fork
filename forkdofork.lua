@@ -68,14 +68,14 @@ by Nebula Softworks
 
 --// SECTION : Core Variables
 
-local Release = "Prerelease Beta 5.03Meow fork by All Ihave"
+local Release = "Prerelease Beta 5.03Meow"
 local debugV = false
 
 local Starlight = {
 
 	InterfaceBuild = "B5B9",
 
-	WindowKeybind = "T",
+	WindowKeybind = "K",
 
 	Minimized = false,
 	Maximized = false,
@@ -929,6 +929,20 @@ end
 local NebulaIcons = isStudio and require(ReplicatedStorage.NebulaIcons)
 
 local connections = {}
+
+--// SUBSECTION : Font References
+-- Central font definitions. Change these to update fonts across all code-created elements.
+-- Note: elements that come from the Roblox asset (toggles, sliders, etc.) use the font
+-- set directly in Studio and are not affected by these references.
+local Fonts = {
+	-- Default font for all code-created text elements (tooltips, status label, etc.)
+	Default  = Font.fromId(12187368625, Enum.FontWeight.Regular),
+	Bold     = Font.fromId(12187368625, Enum.FontWeight.Bold),
+	SemiBold = Font.fromId(12187368625, Enum.FontWeight.SemiBold),
+	-- Sidebar window name header — kept separate as it uses a display/title face
+	Header   = Font.fromEnum(Enum.Font.GothamBlack),
+}
+--//ENDSUBSECTION
 
 --// ENDSECTION
 
@@ -1848,7 +1862,7 @@ local function AddToolTip(InfoStr, HoverInstance)
 	label.Position = UDim2.new(0, 4, 0.5, 0)
 	label.TextSize = 15
 	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.FontFace = Font.fromId(12187365364, Enum.FontWeight.Regular)
+	label.FontFace = Fonts.Default
 	label.TextWrapped = true
 	label.BackgroundTransparency = 1
 	label.TextColor3 = Color3.new(1, 1, 1)
@@ -2781,6 +2795,7 @@ function Starlight:CreateWindow(WindowSettings)
 		else
 			-- Default behaviour: display the window name as text
 			mainWindow.Sidebar.Header.Text = WindowSettings.Name or ""
+			mainWindow.Sidebar.Header.FontFace = Fonts.Header
 		end
 		mainWindow.Content.Topbar.Headers.Subheader.Text = WindowSettings.Subtitle or ""
 		StarlightUI.MobileToggle.Image = WindowSettings.Icon ~= nil and "rbxassetid://" .. WindowSettings.Icon
