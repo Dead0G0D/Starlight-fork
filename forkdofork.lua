@@ -14,7 +14,6 @@ local Starlight = {
 	InterfaceBuild = "B5B9",
 
 	WindowKeybind = "T",
-
 	Minimized = false,
 	Maximized = false,
 	NotificationsOpen = false,
@@ -2777,6 +2776,7 @@ function Starlight:CreateWindow(WindowSettings)
 		mainWindow.Sidebar.Player.PlayerIcon.Image =
 			Players:GetUserThumbnailAsync(Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
 		mainWindow.Sidebar.Player.Header.Text = Player.DisplayName
+		mainWindow.Sidebar.Player.Header.FontFace = Fonts.SemiBold
 
 		-- PlayerStatus: replaces the subheader with a single RichText label.
 		-- 'Status:' in neutral colour + value in accent colour — one label, zero alignment issues.
